@@ -1,22 +1,21 @@
 use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
-use std::path::PathBuf;
 
 use super::SubCommand;
+use crate::primitives::resolved_path::ResolvedPath;
 use crate::workspace;
 
 #[derive(Args)]
 pub struct ListCommand {
     /// Path to the workspace
     #[arg(default_value = ".")]
-    path: PathBuf,
+    path: ResolvedPath,
 }
 
 impl SubCommand for ListCommand {
     fn run(self) -> Result<()> {
-        let path = self.path.canonicalize().unwrap_or(self.path);
-        let crates = workspace::discover_crates(&path)?;
+        let crates = workspace::discover_crates(&self.path)?;
 
         println!("{}", "Discovered crates:".cyan().bold());
         for crate_info in &crates {

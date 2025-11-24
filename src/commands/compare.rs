@@ -1,19 +1,19 @@
 use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
-use std::path::PathBuf;
 
 use super::SubCommand;
+use crate::primitives::resolved_path::ResolvedPath;
 use crate::report::OutputFormat;
 use crate::{analyzer, compare, workspace};
 
 #[derive(Args)]
 pub struct CompareCommand {
     /// Path to the first (left) workspace
-    left: PathBuf,
+    left: ResolvedPath,
 
     /// Path to the second (right) workspace
-    right: PathBuf,
+    right: ResolvedPath,
 
     /// Output format
     #[arg(short, long, default_value = "table")]
@@ -22,14 +22,13 @@ pub struct CompareCommand {
 
 impl SubCommand for CompareCommand {
     fn run(self) -> Result<()> {
-        let left = self.left.canonicalize().unwrap_or(self.left);
-        let right = self.right.canonicalize().unwrap_or(self.right);
-
-        let left_name = left
+        let left_name = self
+            .left
             .file_name()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "left".to_string());
-        let right_name = right
+        let right_name = self
+            .right
             .file_name()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "right".to_string());
@@ -41,8 +40,8 @@ impl SubCommand for CompareCommand {
             right_name
         );
 
-        let left_crates = workspace::discover_crates(&left)?;
-        let right_crates = workspace::discover_crates(&right)?;
+        let left_crates = workspace::discover_crates(&self.left)?;
+        let right_crates = workspace::discover_crates(&self.right)?;
 
         eprintln!(
             "  {} {} crates, {} {} crates",

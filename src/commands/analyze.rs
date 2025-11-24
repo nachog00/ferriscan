@@ -1,9 +1,9 @@
 use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
-use std::path::PathBuf;
 
 use super::SubCommand;
+use crate::primitives::resolved_path::ResolvedPath;
 use crate::report::{OutputFormat, Thresholds};
 use crate::{analyzer, workspace};
 
@@ -11,7 +11,7 @@ use crate::{analyzer, workspace};
 pub struct AnalyzeCommand {
     /// Path to the workspace or crate
     #[arg(default_value = ".")]
-    path: PathBuf,
+    path: ResolvedPath,
 
     /// Output format
     #[arg(short, long, default_value = "table")]
@@ -44,10 +44,9 @@ pub struct AnalyzeCommand {
 
 impl SubCommand for AnalyzeCommand {
     fn run(self) -> Result<()> {
-        let path = self.path.canonicalize().unwrap_or(self.path);
-        eprintln!("{} {}", "Analyzing:".cyan().bold(), path.display());
+        eprintln!("{} {}", "Analyzing:".cyan().bold(), self.path);
 
-        let crates = workspace::discover_crates(&path)?;
+        let crates = workspace::discover_crates(&self.path)?;
         eprintln!("{} {} crates", "Found:".cyan().bold(), crates.len());
 
         let report = analyzer::analyze_workspace(&crates);

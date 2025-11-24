@@ -1,6 +1,7 @@
 mod analyzer;
 mod commands;
 mod compare;
+mod primitives;
 mod report;
 mod workspace;
 
