@@ -1,4 +1,5 @@
 use crate::analyzer::ItemCounts;
+use clap::ValueEnum;
 use comfy_table::{presets::UTF8_FULL, Cell, Color, ContentArrangement, Table};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -249,6 +250,7 @@ impl CrateReport {
 
 // Output formatting
 
+#[derive(Clone, ValueEnum)]
 pub enum OutputFormat {
     Table,
     Json,
