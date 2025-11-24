@@ -1,0 +1,37 @@
+[package]
+name = "ferriscan"
+version = "0.1.0"
+edition = "2021"
+description = "Analyze and compare Rust code quality metrics across workspaces and crates"
+license = "Apache-2.0"
+repository = "https://github.com/nachog00/ferriscan"
+keywords = ["metrics", "code-analysis", "complexity", "maintainability", "code-quality"]
+categories = ["development-tools", "command-line-utilities"]
+
+[[bin]]
+name = "ferriscan"
+path = "src/main.rs"
+
+[dependencies]
+# Code analysis - use git for latest tree-sitter compatibility
+rust-code-analysis = { git = "https://github.com/mozilla/rust-code-analysis.git" }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# File walking
+walkdir = "2"
+glob = "0.3"
+
+# Output formatting
+comfy-table = "7"
+colored = "2"
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
