@@ -1,9 +1,9 @@
 use std::fmt;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::PathBuf;
 use std::str::FromStr;
 
-use tempfile::TempDir;
+use super::remote::{GitRef, RemoteRepo};
+use super::resolved::{RepoSourceError, ResolvedRepo};
 
 /// A source of code to analyze - either a local path or a remote git URL.
 ///
@@ -13,55 +13,8 @@ use tempfile::TempDir;
 #[derive(Debug, Clone)]
 pub enum RepoSource {
     Local(PathBuf),
-    Remote { url: String, git_ref: GitRef },
+    Remote(RemoteRepo),
 }
-
-/// Git reference for remote repositories.
-#[derive(Debug, Clone)]
-pub enum GitRef {
-    /// Clone the default branch (no --branch flag).
-    Default,
-    /// Clone a specific branch or tag.
-    Named(String),
-}
-
-/// A resolved repository ready for analysis.
-/// Holds a temp directory if cloned, ensuring cleanup on drop.
-pub struct ResolvedRepo {
-    path: PathBuf,
-    _temp_dir: Option<TempDir>,
-}
-
-impl ResolvedRepo {
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-}
-
-impl AsRef<Path> for ResolvedRepo {
-    fn as_ref(&self) -> &Path {
-        &self.path
-    }
-}
-
-#[derive(Debug)]
-pub enum RepoSourceError {
-    TempDir(String),
-    GitNotFound(String),
-    CloneFailed(String),
-}
-
-impl fmt::Display for RepoSourceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TempDir(e) => write!(f, "failed to create temp directory: {}", e),
-            Self::GitNotFound(e) => write!(f, "git not found: {}", e),
-            Self::CloneFailed(e) => write!(f, "git clone failed: {}", e),
-        }
-    }
-}
-
-impl std::error::Error for RepoSourceError {}
 
 impl RepoSource {
     /// Resolve the source to a local path, cloning if necessary.
@@ -69,44 +22,14 @@ impl RepoSource {
         match self {
             Self::Local(path) => {
                 let resolved = path.canonicalize().unwrap_or_else(|_| path.clone());
-                Ok(ResolvedRepo {
-                    path: resolved,
-                    _temp_dir: None,
-                })
+                Ok(ResolvedRepo::from_local(resolved))
             }
-            Self::Remote { url, git_ref } => {
-                let temp_dir =
-                    TempDir::new().map_err(|e| RepoSourceError::TempDir(e.to_string()))?;
-
-                let mut cmd = Command::new("git");
-                cmd.arg("clone").arg("--depth=1");
-
-                if let GitRef::Named(r) = git_ref {
-                    cmd.arg("--branch").arg(r);
-                }
-
-                cmd.arg(url).arg(temp_dir.path());
-
-                let output = cmd
-                    .output()
-                    .map_err(|e| RepoSourceError::GitNotFound(e.to_string()))?;
-
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(RepoSourceError::CloneFailed(stderr.to_string()));
-                }
-
-                let path = temp_dir.path().to_path_buf();
-                Ok(ResolvedRepo {
-                    path,
-                    _temp_dir: Some(temp_dir),
-                })
-            }
+            Self::Remote(remote) => remote.clone_repo(),
         }
     }
 
     pub fn is_remote(&self) -> bool {
-        matches!(self, Self::Remote { .. })
+        matches!(self, Self::Remote(_))
     }
 
     /// Get a display name for this source (repo name, optionally with ref).
@@ -116,17 +39,7 @@ impl RepoSource {
                 .file_name()
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_else(|| path.display().to_string()),
-            Self::Remote { url, git_ref } => {
-                let name = url
-                    .trim_end_matches(".git")
-                    .rsplit('/')
-                    .next()
-                    .unwrap_or(url);
-                match git_ref {
-                    GitRef::Named(r) => format!("{}@{}", name, r),
-                    GitRef::Default => name.to_string(),
-                }
-            }
+            Self::Remote(remote) => remote.display_name(),
         }
     }
 }
@@ -165,13 +78,11 @@ impl FromStr for RepoSource {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if is_remote_url(s) {
             let (url, git_ref) = parse_remote_ref(s);
-            Ok(Self::Remote {
-                url: url.to_string(),
-                git_ref: match git_ref {
-                    Some(r) => GitRef::Named(r.to_string()),
-                    None => GitRef::Default,
-                },
-            })
+            let git_ref = match git_ref {
+                Some(r) => GitRef::Named(r.to_string()),
+                None => GitRef::Default,
+            };
+            Ok(Self::Remote(RemoteRepo::new(url.to_string(), git_ref)))
         } else {
             Ok(Self::Local(PathBuf::from(s)))
         }
@@ -182,9 +93,9 @@ impl fmt::Display for RepoSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Local(path) => write!(f, "{}", path.display()),
-            Self::Remote { url, git_ref } => match git_ref {
-                GitRef::Named(r) => write!(f, "{}@{}", url, r),
-                GitRef::Default => write!(f, "{}", url),
+            Self::Remote(remote) => match &remote.git_ref {
+                GitRef::Named(r) => write!(f, "{}@{}", remote.url, r),
+                GitRef::Default => write!(f, "{}", remote.url),
             },
         }
     }
@@ -205,7 +116,7 @@ mod tests {
         let source: RepoSource = "https://github.com/user/repo".parse().unwrap();
         assert!(matches!(
             source,
-            RepoSource::Remote { git_ref: GitRef::Default, .. }
+            RepoSource::Remote(RemoteRepo { git_ref: GitRef::Default, .. })
         ));
     }
 
@@ -214,7 +125,7 @@ mod tests {
         let source: RepoSource = "git@github.com:user/repo".parse().unwrap();
         assert!(matches!(
             source,
-            RepoSource::Remote { git_ref: GitRef::Default, .. }
+            RepoSource::Remote(RemoteRepo { git_ref: GitRef::Default, .. })
         ));
     }
 
@@ -223,7 +134,7 @@ mod tests {
         let source: RepoSource = "https://github.com/user/repo@main".parse().unwrap();
         assert!(matches!(
             source,
-            RepoSource::Remote { git_ref: GitRef::Named(ref r), .. } if r == "main"
+            RepoSource::Remote(RemoteRepo { git_ref: GitRef::Named(ref r), .. }) if r == "main"
         ));
     }
 
@@ -232,7 +143,7 @@ mod tests {
         let source: RepoSource = "git@github.com:user/repo@v1.0.0".parse().unwrap();
         assert!(matches!(
             source,
-            RepoSource::Remote { git_ref: GitRef::Named(ref r), .. } if r == "v1.0.0"
+            RepoSource::Remote(RemoteRepo { git_ref: GitRef::Named(ref r), .. }) if r == "v1.0.0"
         ));
     }
 

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
 
-use crate::cli::args::RepoSource;
+use crate::cli::repo::source::RepoSource;
 use crate::cli::SubCommand;
 use ferriscan::report::{OutputFormat, Thresholds};
 use ferriscan::{analyzer, workspace};
