@@ -27,7 +27,7 @@ impl RemoteRepo {
 
     /// Clone this repository to a temporary directory.
     pub fn clone_repo(&self) -> Result<ResolvedRepo, RepoSourceError> {
-        let temp_dir = TempDir::new().map_err(|e| RepoSourceError::TempDir(e.to_string()))?;
+        let temp_dir = TempDir::new()?;
 
         let mut cmd = Command::new("git");
         cmd.arg("clone").arg("--depth=1");
@@ -38,9 +38,7 @@ impl RemoteRepo {
 
         cmd.arg(&self.url).arg(temp_dir.path());
 
-        let output = cmd
-            .output()
-            .map_err(|e| RepoSourceError::GitNotFound(e.to_string()))?;
+        let output = cmd.output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);

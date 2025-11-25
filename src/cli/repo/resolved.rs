@@ -1,7 +1,8 @@
-use std::fmt;
+use std::io;
 use std::path::{Path, PathBuf};
 
 use tempfile::TempDir;
+use thiserror::Error;
 
 /// A resolved repository ready for analysis.
 /// Holds a temp directory if cloned, ensuring cleanup on drop.
@@ -38,21 +39,11 @@ impl AsRef<Path> for ResolvedRepo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RepoSourceError {
-    TempDir(String),
-    GitNotFound(String),
+    #[error("failed to create temp directory: {0}")]
+    TempDir(#[from] io::Error),
+
+    #[error("git clone failed: {0}")]
     CloneFailed(String),
 }
-
-impl fmt::Display for RepoSourceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TempDir(e) => write!(f, "failed to create temp directory: {}", e),
-            Self::GitNotFound(e) => write!(f, "git not found: {}", e),
-            Self::CloneFailed(e) => write!(f, "git clone failed: {}", e),
-        }
-    }
-}
-
-impl std::error::Error for RepoSourceError {}
