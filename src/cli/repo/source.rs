@@ -28,6 +28,16 @@ impl RepoSource {
         }
     }
 
+    /// Resolve with a progress message to stderr for remote sources.
+    pub fn resolve_with_progress(&self) -> Result<ResolvedRepo, RepoSourceError> {
+        use colored::Colorize;
+
+        if self.is_remote() {
+            eprintln!("{} {}...", "Cloning:".cyan().bold(), self);
+        }
+        self.resolve()
+    }
+
     pub fn is_remote(&self) -> bool {
         matches!(self, Self::Remote(_))
     }

@@ -34,21 +34,10 @@ impl SubCommand for CompareCommand {
         let left_name = self.left_source.display_name();
         let right_name = self.right_source.display_name();
 
-        // Resolve left source
-        if self.left_source.is_remote() {
-            eprintln!("{} {}...", "Cloning:".cyan().bold(), self.left_source);
-        }
-        let left_resolved = self.left_source.resolve()?;
+        let left_resolved = self.left_source.resolve_with_progress()?;
+        let right_resolved = self.right_source.resolve_with_progress()?;
 
-        // Resolve right source
-        if self.right_source.is_remote() {
-            eprintln!("{} {}...", "Cloning:".cyan().bold(), self.right_source);
-        }
-        let right_resolved = self.right_source.resolve()?;
-
-        // Use left_path for right if right_path not specified
         let right_path = self.right_path.unwrap_or_else(|| self.left_path.clone());
-
         let left_target = left_resolved.path().join(&self.left_path);
         let right_target = right_resolved.path().join(&right_path);
 

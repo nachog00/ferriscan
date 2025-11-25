@@ -21,12 +21,7 @@ pub struct ListCommand {
 
 impl SubCommand for ListCommand {
     fn run(self) -> Result<()> {
-        if self.source.is_remote() {
-            eprintln!("{} {}...", "Cloning:".cyan().bold(), self.source);
-        }
-
-        let resolved = self.source.resolve()?;
-
+        let resolved = self.source.resolve_with_progress()?;
         let target_path = resolved.path().join(&self.path);
         let crates = workspace::discover_crates(&target_path)?;
 

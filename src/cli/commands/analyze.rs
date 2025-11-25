@@ -6,7 +6,7 @@ use colored::Colorize;
 
 use crate::cli::repo::source::RepoSource;
 use crate::cli::SubCommand;
-use ferriscan::report::{OutputFormat, Thresholds};
+use ferriscan::report::{OutputFormat, Thresholds, Warning, WorkspaceReport};
 use ferriscan::{analyzer, workspace};
 
 #[derive(Args)]
@@ -48,16 +48,56 @@ pub struct AnalyzeCommand {
     min_mi: f64,
 }
 
+impl AnalyzeCommand {
+    fn thresholds(&self) -> Thresholds {
+        Thresholds {
+            max_file_sloc: self.max_sloc,
+            max_cyclomatic: self.max_cyclomatic,
+            max_cognitive: self.max_cognitive,
+            min_mi: self.min_mi,
+            ..Default::default()
+        }
+    }
+}
+
+fn collect_warnings(report: &WorkspaceReport, thresholds: &Thresholds) -> Vec<(String, Warning)> {
+    report
+        .crates
+        .iter()
+        .flat_map(|c| {
+            c.check_thresholds(thresholds)
+                .into_iter()
+                .map(|w| (c.name.clone(), w))
+        })
+        .collect()
+}
+
+fn print_warnings(warnings: &[(String, Warning)]) {
+    if warnings.is_empty() {
+        eprintln!("\n{}", "No warnings".green().bold());
+        return;
+    }
+
+    eprintln!("\n{}", "=== Warnings ===".yellow().bold());
+    for (crate_name, warning) in warnings {
+        eprintln!(
+            "  {} {}: {}",
+            format!("[{}]", crate_name).dimmed(),
+            warning.file.yellow(),
+            warning.message
+        );
+    }
+    eprintln!(
+        "\n{} {} warnings",
+        "Total:".yellow().bold(),
+        warnings.len()
+    );
+}
+
 impl SubCommand for AnalyzeCommand {
     fn run(self) -> Result<()> {
         let source_name = self.source.display_name();
-
-        if self.source.is_remote() {
-            eprintln!("{} {}...", "Cloning:".cyan().bold(), self.source);
-        }
-
-        let resolved = self.source.resolve()?;
-
+        let resolved = self.source.resolve_with_progress()?;
         let target_path = resolved.path().join(&self.path);
 
         eprintln!("{} {}", "Analyzing:".cyan().bold(), source_name);
@@ -69,40 +109,8 @@ impl SubCommand for AnalyzeCommand {
         println!("{}", report.format(&self.format, self.verbose));
 
         if self.warnings {
-            let thresholds = Thresholds {
-                max_file_sloc: self.max_sloc,
-                max_cyclomatic: self.max_cyclomatic,
-                max_cognitive: self.max_cognitive,
-                min_mi: self.min_mi,
-                ..Default::default()
-            };
-
-            let mut all_warnings = Vec::new();
-            for crate_report in &report.crates {
-                let crate_warnings = crate_report.check_thresholds(&thresholds);
-                for warning in crate_warnings {
-                    all_warnings.push((crate_report.name.clone(), warning));
-                }
-            }
-
-            if !all_warnings.is_empty() {
-                eprintln!("\n{}", "=== Warnings ===".yellow().bold());
-                for (crate_name, warning) in &all_warnings {
-                    eprintln!(
-                        "  {} {}: {}",
-                        format!("[{}]", crate_name).dimmed(),
-                        warning.file.yellow(),
-                        warning.message
-                    );
-                }
-                eprintln!(
-                    "\n{} {} warnings",
-                    "Total:".yellow().bold(),
-                    all_warnings.len()
-                );
-            } else {
-                eprintln!("\n{}", "No warnings".green().bold());
-            }
+            let warnings = collect_warnings(&report, &self.thresholds());
+            print_warnings(&warnings);
         }
 
         Ok(())
