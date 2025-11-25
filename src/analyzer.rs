@@ -5,6 +5,28 @@ use walkdir::WalkDir;
 use crate::report::{CrateReport, FileMetrics, WorkspaceReport};
 use crate::workspace::CrateInfo;
 
+/// Compute weighted average over file metrics, skipping NaN values.
+fn weighted_avg_files(metrics: &[FileMetrics], value_fn: fn(&FileMetrics) -> f64) -> f64 {
+    let (sum, weight) = metrics
+        .iter()
+        .filter(|m| !value_fn(m).is_nan())
+        .fold((0.0, 0.0), |(sum, weight), m| {
+            (sum + value_fn(m) * m.sloc, weight + m.sloc)
+        });
+    if weight > 0.0 { sum / weight } else { 0.0 }
+}
+
+/// Compute weighted average over crate reports, skipping zero-weight crates.
+fn weighted_avg_crates(crates: &[CrateReport], value_fn: fn(&CrateReport) -> f64) -> f64 {
+    let (sum, weight) = crates
+        .iter()
+        .filter(|c| c.total_sloc > 0.0)
+        .fold((0.0, 0.0), |(sum, weight), c| {
+            (sum + value_fn(c) * c.total_sloc, weight + c.total_sloc)
+        });
+    if weight > 0.0 { sum / weight } else { 0.0 }
+}
+
 /// Analyze a single Rust source file and return its FuncSpace metrics.
 pub fn analyze_file(path: &Path) -> Option<FuncSpace> {
     let source = std::fs::read(path).ok()?;
@@ -110,33 +132,11 @@ pub fn analyze_crate(crate_info: &CrateInfo) -> CrateReport {
         report.total_functions = all_metrics.iter().map(|m| m.functions).sum();
         report.total_closures = all_metrics.iter().map(|m| m.closures).sum();
 
-        // Weighted averages (weighted by SLOC)
-        let total_sloc = report.total_sloc;
-        if total_sloc > 0.0 {
-            report.avg_cyclomatic = all_metrics
-                .iter()
-                .map(|m| m.cyclomatic_avg * m.sloc)
-                .sum::<f64>()
-                / total_sloc;
-
-            report.avg_cognitive = all_metrics
-                .iter()
-                .map(|m| m.cognitive_avg * m.sloc)
-                .sum::<f64>()
-                / total_sloc;
-
-            report.avg_mi = all_metrics
-                .iter()
-                .map(|m| m.mi_visual_studio * m.sloc)
-                .sum::<f64>()
-                / total_sloc;
-
-            report.avg_halstead_difficulty = all_metrics
-                .iter()
-                .map(|m| m.halstead_difficulty * m.sloc)
-                .sum::<f64>()
-                / total_sloc;
-        }
+        // Weighted averages (weighted by SLOC, filtering out NaN)
+        report.avg_cyclomatic = weighted_avg_files(&all_metrics, |m| m.cyclomatic_avg);
+        report.avg_cognitive = weighted_avg_files(&all_metrics, |m| m.cognitive_avg);
+        report.avg_mi = weighted_avg_files(&all_metrics, |m| m.mi_visual_studio);
+        report.avg_halstead_difficulty = weighted_avg_files(&all_metrics, |m| m.halstead_difficulty);
 
         // Simple averages
         let n = all_metrics.len() as f64;
@@ -187,28 +187,9 @@ pub fn analyze_workspace(crates: &[CrateInfo]) -> WorkspaceReport {
     report.total_sloc = report.crates.iter().map(|c| c.total_sloc).sum();
     report.total_functions = report.crates.iter().map(|c| c.total_functions).sum();
 
-    if report.total_sloc > 0.0 {
-        report.avg_cyclomatic = report
-            .crates
-            .iter()
-            .map(|c| c.avg_cyclomatic * c.total_sloc)
-            .sum::<f64>()
-            / report.total_sloc;
-
-        report.avg_cognitive = report
-            .crates
-            .iter()
-            .map(|c| c.avg_cognitive * c.total_sloc)
-            .sum::<f64>()
-            / report.total_sloc;
-
-        report.avg_mi = report
-            .crates
-            .iter()
-            .map(|c| c.avg_mi * c.total_sloc)
-            .sum::<f64>()
-            / report.total_sloc;
-    }
+    report.avg_cyclomatic = weighted_avg_crates(&report.crates, |c| c.avg_cyclomatic);
+    report.avg_cognitive = weighted_avg_crates(&report.crates, |c| c.avg_cognitive);
+    report.avg_mi = weighted_avg_crates(&report.crates, |c| c.avg_mi);
 
     // Sort crates by size
     report.crates.sort_by(|a, b| {
