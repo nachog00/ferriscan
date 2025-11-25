@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = [
+    "simple_crate",
+    "complex_crate",
+    "edge_cases",
+]
