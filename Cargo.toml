@@ -38,3 +38,6 @@ anyhow = "1"
 
 # Derive helpers
 derive_more = { version = "1", features = ["add", "add_assign", "display", "from", "into"] }
+
+# Temp directories for git clone
+tempfile = "3"

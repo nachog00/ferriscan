@@ -1,17 +1,23 @@
-use anyhow::Result;
+use std::path::PathBuf;
+
+use anyhow::{Context, Result};
 use clap::Args;
 use colored::Colorize;
 
+use crate::cli::args::RepoSource;
 use crate::cli::SubCommand;
-use ferriscan::primitives::resolved_path::ResolvedPath;
 use ferriscan::report::{OutputFormat, Thresholds};
 use ferriscan::{analyzer, workspace};
 
 #[derive(Args)]
 pub struct AnalyzeCommand {
-    /// Path to the workspace or crate
+    /// Source to analyze (local path or git URL with optional @ref)
     #[arg(default_value = ".")]
-    path: ResolvedPath,
+    source: RepoSource,
+
+    /// Relative path within the source to analyze
+    #[arg(default_value = ".")]
+    path: PathBuf,
 
     /// Output format
     #[arg(short, long, default_value = "table")]
@@ -44,9 +50,22 @@ pub struct AnalyzeCommand {
 
 impl SubCommand for AnalyzeCommand {
     fn run(self) -> Result<()> {
-        eprintln!("{} {}", "Analyzing:".cyan().bold(), self.path);
+        let source_name = self.source.display_name();
 
-        let crates = workspace::discover_crates(&self.path)?;
+        if self.source.is_remote() {
+            eprintln!("{} {}...", "Cloning:".cyan().bold(), self.source);
+        }
+
+        let resolved = self
+            .source
+            .resolve()
+            .context("failed to resolve source")?;
+
+        let target_path = resolved.path().join(&self.path);
+
+        eprintln!("{} {}", "Analyzing:".cyan().bold(), source_name);
+
+        let crates = workspace::discover_crates(&target_path)?;
         eprintln!("{} {} crates", "Found:".cyan().bold(), crates.len());
 
         let report = analyzer::analyze_workspace(&crates);
