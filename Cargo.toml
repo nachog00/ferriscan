@@ -35,3 +35,6 @@ colored = "2"
 # Error handling
 thiserror = "1"
 anyhow = "1"
+
+# Derive helpers
+derive_more = { version = "1", features = ["add", "add_assign", "display", "from", "into"] }

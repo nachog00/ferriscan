@@ -1,4 +1,5 @@
 use crate::analyzer::ItemCounts;
+use crate::primitives::file_count::FileCount;
 use clap::ValueEnum;
 use comfy_table::{presets::UTF8_FULL, Cell, Color, ContentArrangement, Table};
 use serde::{Deserialize, Serialize};
@@ -38,7 +39,7 @@ pub struct CrateReport {
     pub name: String,
     #[serde(skip_serializing_if = "is_default_path")]
     pub path: PathBuf,
-    pub file_count: usize,
+    pub file_count: FileCount,
     pub total_sloc: f64,
     pub total_ploc: f64,
     pub total_lloc: f64,
@@ -70,7 +71,7 @@ fn is_default_path(p: &PathBuf) -> bool {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct WorkspaceReport {
     pub total_crates: usize,
-    pub total_files: usize,
+    pub total_files: FileCount,
     pub total_sloc: f64,
     pub total_functions: f64,
     pub avg_cyclomatic: f64,
@@ -92,7 +93,7 @@ pub struct ComparisonReport {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceSummary {
     pub total_crates: usize,
-    pub total_files: usize,
+    pub total_files: FileCount,
     pub total_sloc: f64,
     pub total_functions: f64,
     pub avg_cyclomatic: f64,
@@ -117,17 +118,6 @@ pub struct MetricsDelta {
 
 impl WorkspaceReport {
     pub fn to_summary(&self) -> WorkspaceSummary {
-        let sloc_per_file = if self.total_files > 0 {
-            self.total_sloc / self.total_files as f64
-        } else {
-            0.0
-        };
-        let functions_per_file = if self.total_files > 0 {
-            self.total_functions / self.total_files as f64
-        } else {
-            0.0
-        };
-
         WorkspaceSummary {
             total_crates: self.total_crates,
             total_files: self.total_files,
@@ -136,8 +126,8 @@ impl WorkspaceReport {
             avg_cyclomatic: self.avg_cyclomatic,
             avg_cognitive: self.avg_cognitive,
             avg_mi: self.avg_mi,
-            sloc_per_file,
-            functions_per_file,
+            sloc_per_file: self.total_sloc / self.total_files,
+            functions_per_file: self.total_functions / self.total_files,
         }
     }
 }
@@ -261,9 +251,7 @@ impl WorkspaceReport {
     pub fn format(&self, format: &OutputFormat, verbose: bool) -> String {
         match format {
             OutputFormat::Json => serde_json::to_string(self).unwrap_or_default(),
-            OutputFormat::JsonPretty => {
-                serde_json::to_string_pretty(self).unwrap_or_default()
-            }
+            OutputFormat::JsonPretty => serde_json::to_string_pretty(self).unwrap_or_default(),
             OutputFormat::Table => self.format_table(verbose),
         }
     }
@@ -281,19 +269,25 @@ impl WorkspaceReport {
         summary.add_row(vec!["Total Crates", &self.total_crates.to_string()]);
         summary.add_row(vec!["Total Files", &self.total_files.to_string()]);
         summary.add_row(vec!["Total SLOC", &format!("{:.0}", self.total_sloc)]);
-        summary.add_row(vec!["Total Functions", &format!("{:.0}", self.total_functions)]);
-        summary.add_row(vec!["Avg Cyclomatic", &format!("{:.2}", self.avg_cyclomatic)]);
+        summary.add_row(vec![
+            "Total Functions",
+            &format!("{:.0}", self.total_functions),
+        ]);
+        summary.add_row(vec![
+            "Avg Cyclomatic",
+            &format!("{:.2}", self.avg_cyclomatic),
+        ]);
         summary.add_row(vec!["Avg Cognitive", &format!("{:.2}", self.avg_cognitive)]);
         summary.add_row(vec!["Avg Maintainability", &format!("{:.1}", self.avg_mi)]);
 
-        if self.total_files > 0 {
+        if !self.total_files.is_zero() {
             summary.add_row(vec![
                 "SLOC per File",
-                &format!("{:.1}", self.total_sloc / self.total_files as f64),
+                &format!("{:.1}", self.total_sloc / self.total_files),
             ]);
             summary.add_row(vec![
                 "Functions per File",
-                &format!("{:.1}", self.total_functions / self.total_files as f64),
+                &format!("{:.1}", self.total_functions / self.total_files),
             ]);
         }
 
@@ -306,9 +300,7 @@ impl WorkspaceReport {
         let mut crates_table = Table::new();
         crates_table.load_preset(UTF8_FULL);
         crates_table.set_content_arrangement(ContentArrangement::Dynamic);
-        crates_table.set_header(vec![
-            "Crate", "Files", "SLOC", "Funcs", "Cyc", "Cog", "MI",
-        ]);
+        crates_table.set_header(vec!["Crate", "Files", "SLOC", "Funcs", "Cyc", "Cog", "MI"]);
 
         for crate_report in &self.crates {
             let mi_color = if crate_report.avg_mi < 20.0 {
@@ -371,7 +363,11 @@ impl WorkspaceReport {
                 .flat_map(|c| c.worst_maintainability.iter().map(|f| (&c.name, f)))
                 .filter(|(_, f)| f.mi_visual_studio > 0.0)
                 .collect();
-            worst.sort_by(|a, b| a.1.mi_visual_studio.partial_cmp(&b.1.mi_visual_studio).unwrap());
+            worst.sort_by(|a, b| {
+                a.1.mi_visual_studio
+                    .partial_cmp(&b.1.mi_visual_studio)
+                    .unwrap()
+            });
             worst.truncate(10);
 
             let mut worst_table = Table::new();

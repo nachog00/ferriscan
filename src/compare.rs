@@ -20,7 +20,7 @@ pub fn compare_workspaces(
     let delta = MetricsDelta {
         sloc_diff,
         sloc_pct,
-        files_diff: right_summary.total_files as i64 - left_summary.total_files as i64,
+        files_diff: right_summary.total_files - left_summary.total_files,
         functions_diff: right_summary.total_functions - left_summary.total_functions,
         cyclomatic_diff: right_summary.avg_cyclomatic - left_summary.avg_cyclomatic,
         cognitive_diff: right_summary.avg_cognitive - left_summary.avg_cognitive,

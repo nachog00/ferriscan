@@ -99,7 +99,7 @@ pub fn analyze_crate(crate_info: &CrateInfo) -> CrateReport {
     }
 
     // Compute aggregates
-    report.file_count = all_metrics.len();
+    report.file_count = all_metrics.len().into();
 
     if !all_metrics.is_empty() {
         report.total_sloc = all_metrics.iter().map(|m| m.sloc).sum();
