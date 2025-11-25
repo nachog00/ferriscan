@@ -48,6 +48,29 @@ pub struct AnalyzeCommand {
     min_mi: f64,
 }
 
+impl SubCommand for AnalyzeCommand {
+    fn run(self) -> Result<()> {
+        let source_name = self.source.display_name();
+        let resolved = self.source.resolve_with_progress()?;
+        let target_path = resolved.path().join(&self.path);
+
+        eprintln!("{} {}", "Analyzing:".cyan().bold(), source_name);
+
+        let crates = workspace::discover_crates(&target_path)?;
+        eprintln!("{} {} crates", "Found:".cyan().bold(), crates.len());
+
+        let report = analyzer::analyze_workspace(&crates);
+        println!("{}", report.format(&self.format, self.verbose));
+
+        if self.warnings {
+            let warnings = collect_warnings(&report, &self.thresholds());
+            print_warnings(&warnings);
+        }
+
+        Ok(())
+    }
+}
+
 impl AnalyzeCommand {
     fn thresholds(&self) -> Thresholds {
         Thresholds {
@@ -87,32 +110,5 @@ fn print_warnings(warnings: &[(String, Warning)]) {
             warning.message
         );
     }
-    eprintln!(
-        "\n{} {} warnings",
-        "Total:".yellow().bold(),
-        warnings.len()
-    );
-}
-
-impl SubCommand for AnalyzeCommand {
-    fn run(self) -> Result<()> {
-        let source_name = self.source.display_name();
-        let resolved = self.source.resolve_with_progress()?;
-        let target_path = resolved.path().join(&self.path);
-
-        eprintln!("{} {}", "Analyzing:".cyan().bold(), source_name);
-
-        let crates = workspace::discover_crates(&target_path)?;
-        eprintln!("{} {} crates", "Found:".cyan().bold(), crates.len());
-
-        let report = analyzer::analyze_workspace(&crates);
-        println!("{}", report.format(&self.format, self.verbose));
-
-        if self.warnings {
-            let warnings = collect_warnings(&report, &self.thresholds());
-            print_warnings(&warnings);
-        }
-
-        Ok(())
-    }
+    eprintln!("\n{} {} warnings", "Total:".yellow().bold(), warnings.len());
 }
