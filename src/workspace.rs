@@ -1,6 +1,28 @@
-use anyhow::{Context, Result};
-use serde::Deserialize;
+use std::io;
 use std::path::{Path, PathBuf};
+
+use serde::Deserialize;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum WorkspaceError {
+    #[error("no Cargo.toml found at {0}")]
+    NotFound(PathBuf),
+
+    #[error("failed to read {path}")]
+    Read {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+
+    #[error("failed to parse {path}")]
+    Parse {
+        path: PathBuf,
+        #[source]
+        source: toml::de::Error,
+    },
+}
 
 /// Information about a crate.
 #[derive(Debug, Clone)]
@@ -27,18 +49,22 @@ struct Workspace {
 }
 
 /// Discover crates in a workspace or single crate.
-pub fn discover_crates(path: &Path) -> Result<Vec<CrateInfo>> {
+pub fn discover_crates(path: &Path) -> Result<Vec<CrateInfo>, WorkspaceError> {
     let cargo_toml = path.join("Cargo.toml");
 
     if !cargo_toml.exists() {
-        anyhow::bail!("No Cargo.toml found at {}", path.display());
+        return Err(WorkspaceError::NotFound(path.to_path_buf()));
     }
 
-    let content = std::fs::read_to_string(&cargo_toml)
-        .with_context(|| format!("Failed to read {}", cargo_toml.display()))?;
+    let content = std::fs::read_to_string(&cargo_toml).map_err(|e| WorkspaceError::Read {
+        path: cargo_toml.clone(),
+        source: e,
+    })?;
 
-    let parsed: CargoToml = toml::from_str(&content)
-        .with_context(|| format!("Failed to parse {}", cargo_toml.display()))?;
+    let parsed: CargoToml = toml::from_str(&content).map_err(|e| WorkspaceError::Parse {
+        path: cargo_toml.clone(),
+        source: e,
+    })?;
 
     let mut crates = Vec::new();
 
@@ -101,7 +127,7 @@ fn parse_crate_info(path: &Path) -> Option<CrateInfo> {
 }
 
 /// Discover crates from multiple paths (for comparison).
-pub fn discover_all(paths: &[PathBuf]) -> Result<Vec<(String, Vec<CrateInfo>)>> {
+pub fn discover_all(paths: &[PathBuf]) -> Result<Vec<(String, Vec<CrateInfo>)>, WorkspaceError> {
     let mut result = Vec::new();
 
     for path in paths {

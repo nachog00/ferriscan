@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
@@ -38,19 +38,13 @@ impl SubCommand for CompareCommand {
         if self.left_source.is_remote() {
             eprintln!("{} {}...", "Cloning:".cyan().bold(), self.left_source);
         }
-        let left_resolved = self
-            .left_source
-            .resolve()
-            .context("failed to resolve left source")?;
+        let left_resolved = self.left_source.resolve()?;
 
         // Resolve right source
         if self.right_source.is_remote() {
             eprintln!("{} {}...", "Cloning:".cyan().bold(), self.right_source);
         }
-        let right_resolved = self
-            .right_source
-            .resolve()
-            .context("failed to resolve right source")?;
+        let right_resolved = self.right_source.resolve()?;
 
         // Use left_path for right if right_path not specified
         let right_path = self.right_path.unwrap_or_else(|| self.left_path.clone());

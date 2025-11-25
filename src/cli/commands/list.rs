@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
@@ -25,10 +25,7 @@ impl SubCommand for ListCommand {
             eprintln!("{} {}...", "Cloning:".cyan().bold(), self.source);
         }
 
-        let resolved = self
-            .source
-            .resolve()
-            .context("failed to resolve source")?;
+        let resolved = self.source.resolve()?;
 
         let target_path = resolved.path().join(&self.path);
         let crates = workspace::discover_crates(&target_path)?;
