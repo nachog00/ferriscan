@@ -2,10 +2,10 @@ use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
-use super::SubCommand;
-use crate::primitives::resolved_path::ResolvedPath;
-use crate::report::OutputFormat;
-use crate::{analyzer, compare, workspace};
+use crate::cli::SubCommand;
+use ferriscan::primitives::resolved_path::ResolvedPath;
+use ferriscan::report::OutputFormat;
+use ferriscan::{analyzer, compare, workspace};
 
 #[derive(Args)]
 pub struct CompareCommand {

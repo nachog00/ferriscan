@@ -2,10 +2,10 @@ use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
-use super::SubCommand;
-use crate::primitives::resolved_path::ResolvedPath;
-use crate::report::{OutputFormat, Thresholds};
-use crate::{analyzer, workspace};
+use crate::cli::SubCommand;
+use ferriscan::primitives::resolved_path::ResolvedPath;
+use ferriscan::report::{OutputFormat, Thresholds};
+use ferriscan::{analyzer, workspace};
 
 #[derive(Args)]
 pub struct AnalyzeCommand {

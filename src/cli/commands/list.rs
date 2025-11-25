@@ -2,9 +2,9 @@ use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
-use super::SubCommand;
-use crate::primitives::resolved_path::ResolvedPath;
-use crate::workspace;
+use crate::cli::SubCommand;
+use ferriscan::primitives::resolved_path::ResolvedPath;
+use ferriscan::workspace;
 
 #[derive(Args)]
 pub struct ListCommand {

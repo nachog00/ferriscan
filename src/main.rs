@@ -1,16 +1,15 @@
-mod analyzer;
-mod commands;
-mod compare;
-mod primitives;
-mod report;
-mod workspace;
+mod cli;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use commands::{AnalyzeCommand, CompareCommand, ListCommand, SubCommand};
+
+use cli::commands::analyze::AnalyzeCommand;
+use cli::commands::compare::CompareCommand;
+use cli::commands::list::ListCommand;
+use cli::SubCommand;
 
 #[derive(Parser)]
-#[command(name = "crate-metrics")]
+#[command(name = "ferriscan")]
 #[command(about = "Analyze and compare Rust crate/workspace code metrics")]
 #[command(version)]
 struct Cli {
