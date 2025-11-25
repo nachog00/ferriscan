@@ -98,8 +98,8 @@ pub fn analyze_crate(crate_info: &CrateInfo) -> CrateReport {
                 lloc: space.metrics.loc.lloc(),
                 cloc: space.metrics.loc.cloc(),
                 blank: space.metrics.loc.blank(),
-                functions: space.metrics.nom.functions(),
-                closures: space.metrics.nom.closures(),
+                functions: counts.functions as f64,
+                closures: space.metrics.nom.closures(), // closures are counted at file level
                 cyclomatic_sum: space.metrics.cyclomatic.cyclomatic_sum(),
                 cyclomatic_avg: space.metrics.cyclomatic.cyclomatic_average(),
                 cognitive_sum: space.metrics.cognitive.cognitive_sum(),
