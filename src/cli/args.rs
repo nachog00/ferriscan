@@ -136,38 +136,42 @@ fn is_remote_url(s: &str) -> bool {
         || s.starts_with("git://")
 }
 
+/// Extract @ref suffix from a remote URL.
+/// Returns (url_without_ref, Some(ref)) or (original_url, None).
+///
+/// Only looks for @ after the last / to avoid matching git@github.com.
+fn parse_remote_ref(url: &str) -> (&str, Option<&str>) {
+    let last_slash = match url.rfind('/') {
+        Some(pos) => pos,
+        None => return (url, None),
+    };
+
+    let after_slash = &url[last_slash..];
+    match after_slash.rfind('@') {
+        Some(at_pos) => {
+            let absolute_at = last_slash + at_pos;
+            (&url[..absolute_at], Some(&url[absolute_at + 1..]))
+        }
+        None => (url, None),
+    }
+}
+
 impl FromStr for RepoSource {
     type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Parse @ref suffix for remote URLs
-        // Be careful not to treat git@github.com as having a ref
-        let (source, git_ref) = if is_remote_url(s) {
-            // Find the last @ that's after a / (to avoid git@github.com)
-            if let Some(last_slash) = s.rfind('/') {
-                if let Some(at_pos) = s[last_slash..].rfind('@') {
-                    let absolute_at = last_slash + at_pos;
-                    (
-                        s[..absolute_at].to_string(),
-                        Some(s[absolute_at + 1..].to_string()),
-                    )
-                } else {
-                    (s.to_string(), None)
-                }
-            } else {
-                (s.to_string(), None)
-            }
+        if is_remote_url(s) {
+            let (url, git_ref) = parse_remote_ref(s);
+            Ok(RepoSource {
+                kind: SourceKind::Remote(url.to_string()),
+                git_ref: git_ref.map(String::from),
+            })
         } else {
-            (s.to_string(), None)
-        };
-
-        let kind = if is_remote_url(&source) {
-            SourceKind::Remote(source)
-        } else {
-            SourceKind::Local(PathBuf::from(source))
-        };
-
-        Ok(RepoSource { kind, git_ref })
+            Ok(RepoSource {
+                kind: SourceKind::Local(PathBuf::from(s)),
+                git_ref: None,
+            })
+        }
     }
 }
 
