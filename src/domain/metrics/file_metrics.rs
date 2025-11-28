@@ -1,5 +1,12 @@
 use serde::{Deserialize, Serialize};
 
+use crate::domain::primitive::blank::Blank;
+use crate::domain::primitive::cloc::Cloc;
+use crate::domain::primitive::counts::{Nargs, Nexits};
+use crate::domain::primitive::lloc::Lloc;
+use crate::domain::primitive::ploc::Ploc;
+use crate::domain::primitive::sloc::Sloc;
+
 use super::function_metrics::{FunctionKind, FunctionMetrics};
 
 /// Metrics for a file, aggregated from its functions.
@@ -12,11 +19,11 @@ pub struct FileMetrics {
     pub functions: Vec<FunctionMetrics>,
 
     // Aggregated size metrics
-    pub sloc: f64,
-    pub ploc: f64,
-    pub lloc: f64,
-    pub cloc: f64,
-    pub blank: f64,
+    pub sloc: Sloc,
+    pub ploc: Ploc,
+    pub lloc: Lloc,
+    pub cloc: Cloc,
+    pub blank: Blank,
 
     // Aggregated complexity
     pub cyclomatic_sum: f64,
@@ -33,9 +40,9 @@ pub struct FileMetrics {
     pub mi_avg: f64,
 
     // Counts
-    pub nargs_sum: usize,
+    pub nargs_sum: Nargs,
     pub nargs_avg: f64,
-    pub nexits_sum: usize,
+    pub nexits_sum: Nexits,
 }
 
 impl FileMetrics {
@@ -47,11 +54,11 @@ impl FileMetrics {
             return Self {
                 path,
                 functions,
-                sloc: 0.0,
-                ploc: 0.0,
-                lloc: 0.0,
-                cloc: 0.0,
-                blank: 0.0,
+                sloc: Sloc::zero(),
+                ploc: Ploc::zero(),
+                lloc: Lloc::zero(),
+                cloc: Cloc::zero(),
+                blank: Blank::zero(),
                 cyclomatic_sum: 0.0,
                 cyclomatic_avg: 0.0,
                 cognitive_sum: 0.0,
@@ -60,30 +67,30 @@ impl FileMetrics {
                 halstead_effort_sum: 0.0,
                 halstead_bugs_sum: 0.0,
                 mi_avg: 0.0,
-                nargs_sum: 0,
+                nargs_sum: Nargs::zero(),
                 nargs_avg: 0.0,
-                nexits_sum: 0,
+                nexits_sum: Nexits::zero(),
             };
         }
 
         let n_f64 = n as f64;
 
-        let sloc: f64 = functions.iter().map(|f| f.sloc).sum();
-        let ploc: f64 = functions.iter().map(|f| f.ploc).sum();
-        let lloc: f64 = functions.iter().map(|f| f.lloc).sum();
-        let cloc: f64 = functions.iter().map(|f| f.cloc).sum();
-        let blank: f64 = functions.iter().map(|f| f.blank).sum();
+        let sloc: Sloc = functions.iter().map(|f| f.sloc).sum();
+        let ploc: Ploc = functions.iter().map(|f| f.ploc).sum();
+        let lloc: Lloc = functions.iter().map(|f| f.lloc).sum();
+        let cloc: Cloc = functions.iter().map(|f| f.cloc).sum();
+        let blank: Blank = functions.iter().map(|f| f.blank).sum();
 
-        let cyclomatic_sum: f64 = functions.iter().map(|f| f.cyclomatic).sum();
-        let cognitive_sum: f64 = functions.iter().map(|f| f.cognitive).sum();
+        let cyclomatic_sum: f64 = functions.iter().map(|f| f.cyclomatic.value()).sum();
+        let cognitive_sum: f64 = functions.iter().map(|f| f.cognitive.value()).sum();
         let halstead_difficulty_avg: f64 =
-            functions.iter().map(|f| f.halstead_difficulty).sum::<f64>() / n_f64;
-        let halstead_effort_sum: f64 = functions.iter().map(|f| f.halstead_effort).sum();
-        let halstead_bugs_sum: f64 = functions.iter().map(|f| f.halstead_bugs).sum();
-        let mi_avg: f64 = functions.iter().map(|f| f.mi).sum::<f64>() / n_f64;
+            functions.iter().map(|f| f.halstead_difficulty.value()).sum::<f64>() / n_f64;
+        let halstead_effort_sum: f64 = functions.iter().map(|f| f.halstead_effort.value()).sum();
+        let halstead_bugs_sum: f64 = functions.iter().map(|f| f.halstead_bugs.value()).sum();
+        let mi_avg: f64 = functions.iter().map(|f| f.mi.value()).sum::<f64>() / n_f64;
 
-        let nargs_sum: usize = functions.iter().map(|f| f.nargs).sum();
-        let nexits_sum: usize = functions.iter().map(|f| f.nexits).sum();
+        let nargs_sum: Nargs = functions.iter().map(|f| f.nargs).sum();
+        let nexits_sum: Nexits = functions.iter().map(|f| f.nexits).sum();
 
         Self {
             path,
@@ -102,7 +109,7 @@ impl FileMetrics {
             halstead_bugs_sum,
             mi_avg,
             nargs_sum,
-            nargs_avg: nargs_sum as f64 / n_f64,
+            nargs_avg: nargs_sum.value() as f64 / n_f64,
             nexits_sum,
         }
     }

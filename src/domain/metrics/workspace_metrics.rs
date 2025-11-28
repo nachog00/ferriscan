@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::weighted_avg;
+use crate::domain::primitive::sloc::Sloc;
+
 use super::crate_metrics::CrateMetrics;
+use super::weighted_avg;
 
 /// Metrics for a workspace, aggregated from its crates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,7 +12,7 @@ pub struct WorkspaceMetrics {
     pub crates: Vec<CrateMetrics>,
 
     // Aggregated totals
-    pub total_sloc: f64,
+    pub total_sloc: Sloc,
     pub total_functions: usize,
 
     // Averages
@@ -25,7 +27,7 @@ impl WorkspaceMetrics {
         if crates.is_empty() {
             return Self {
                 crates,
-                total_sloc: 0.0,
+                total_sloc: Sloc::zero(),
                 total_functions: 0,
                 avg_cyclomatic: 0.0,
                 avg_cognitive: 0.0,
@@ -33,13 +35,15 @@ impl WorkspaceMetrics {
             };
         }
 
-        let total_sloc: f64 = crates.iter().map(|c| c.total_sloc).sum();
+        let total_sloc: Sloc = crates.iter().map(|c| c.total_sloc).sum();
         let total_functions: usize = crates.iter().map(|c| c.total_functions).sum();
 
         // Weighted averages by SLOC
-        let avg_cyclomatic = weighted_avg(&crates, |c| c.avg_cyclomatic, |c| c.total_sloc);
-        let avg_cognitive = weighted_avg(&crates, |c| c.avg_cognitive, |c| c.total_sloc);
-        let avg_mi = weighted_avg(&crates, |c| c.avg_mi, |c| c.total_sloc);
+        let avg_cyclomatic =
+            weighted_avg(&crates, |c| c.avg_cyclomatic, |c| c.total_sloc.value());
+        let avg_cognitive =
+            weighted_avg(&crates, |c| c.avg_cognitive, |c| c.total_sloc.value());
+        let avg_mi = weighted_avg(&crates, |c| c.avg_mi, |c| c.total_sloc.value());
 
         Self {
             crates,

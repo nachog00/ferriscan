@@ -30,7 +30,7 @@ fn format_workspace_table(workspace: &WorkspaceMetrics, verbose: bool) -> String
     summary.set_header(vec!["Metric", "Value"]);
     summary.add_row(vec!["Total Crates", &workspace.crate_count().to_string()]);
     summary.add_row(vec!["Total Files", &workspace.file_count().to_string()]);
-    summary.add_row(vec!["Total SLOC", &format!("{:.0}", workspace.total_sloc)]);
+    summary.add_row(vec!["Total SLOC", &format!("{:.0}", workspace.total_sloc.value())]);
     summary.add_row(vec![
         "Total Functions",
         &workspace.total_functions.to_string(),
@@ -46,7 +46,7 @@ fn format_workspace_table(workspace: &WorkspaceMetrics, verbose: bool) -> String
     if file_count > 0 {
         summary.add_row(vec![
             "SLOC per File",
-            &format!("{:.1}", workspace.total_sloc / file_count as f64),
+            &format!("{:.1}", workspace.total_sloc.value() / file_count as f64),
         ]);
         summary.add_row(vec![
             "Functions per File",
@@ -71,7 +71,7 @@ fn format_workspace_table(workspace: &WorkspaceMetrics, verbose: bool) -> String
         crates_table.add_row(vec![
             Cell::new(&crate_metrics.name),
             Cell::new(crate_metrics.file_count()),
-            Cell::new(format!("{:.0}", crate_metrics.total_sloc)),
+            Cell::new(format!("{:.0}", crate_metrics.total_sloc.value())),
             Cell::new(crate_metrics.total_functions),
             Cell::new(format!("{:.1}", crate_metrics.avg_cyclomatic)),
             Cell::new(format!("{:.1}", crate_metrics.avg_cognitive)),
@@ -102,7 +102,7 @@ fn format_verbose_details(workspace: &WorkspaceMetrics) -> String {
     output.push_str("\n\n=== Largest Files (Top 10) ===\n\n");
 
     let mut by_sloc = all_files.clone();
-    by_sloc.sort_by(|a, b| b.1.sloc.partial_cmp(&a.1.sloc).unwrap_or(std::cmp::Ordering::Equal));
+    by_sloc.sort_by(|a, b| b.1.sloc.value().partial_cmp(&a.1.sloc.value()).unwrap_or(std::cmp::Ordering::Equal));
     by_sloc.truncate(10);
 
     let mut files_table = Table::new();
@@ -114,7 +114,7 @@ fn format_verbose_details(workspace: &WorkspaceMetrics) -> String {
         files_table.add_row(vec![
             crate_name.as_str(),
             &file.path,
-            &format!("{:.0}", file.sloc),
+            &format!("{:.0}", file.sloc.value()),
             &file.function_count().to_string(),
             &format!("{:.1}", file.cyclomatic_avg),
             &format!("{:.1}", file.mi_avg),
@@ -147,7 +147,7 @@ fn format_verbose_details(workspace: &WorkspaceMetrics) -> String {
             Cell::new(crate_name.as_str()),
             Cell::new(&file.path),
             Cell::new(format!("{:.1}", file.mi_avg)).fg(mi_color(file.mi_avg)),
-            Cell::new(format!("{:.0}", file.sloc)),
+            Cell::new(format!("{:.0}", file.sloc.value())),
             Cell::new(format!("{:.1}", file.cyclomatic_avg)),
         ]);
     }
@@ -210,13 +210,13 @@ fn workspace_to_summary(w: &WorkspaceMetrics) -> WorkspaceSummary {
     WorkspaceSummary {
         total_crates: w.crate_count(),
         total_files: file_count,
-        total_sloc: w.total_sloc,
+        total_sloc: w.total_sloc.value(),
         total_functions: w.total_functions,
         avg_cyclomatic: w.avg_cyclomatic,
         avg_cognitive: w.avg_cognitive,
         avg_mi: w.avg_mi,
         sloc_per_file: if file_count > 0 {
-            w.total_sloc / file_count as f64
+            w.total_sloc.value() / file_count as f64
         } else {
             0.0
         },

@@ -36,7 +36,7 @@ fn test_simple_crate_metrics() {
     assert_eq!(report.name, "simple_crate");
     assert_eq!(report.file_count(), 1);
     // SLOC now counts only function bodies, not file-level code (imports, etc.)
-    assert_eq!(report.total_sloc, 11.0);
+    assert_eq!(report.total_sloc.value(), 11.0);
     assert_eq!(report.total_functions, 3);
 
     // Simple functions have cyclomatic complexity of 1
@@ -61,7 +61,7 @@ fn test_complex_crate_metrics() {
     assert_eq!(report.name, "complex_crate");
     assert_eq!(report.file_count(), 2);
     // SLOC now counts only function bodies
-    assert_eq!(report.total_sloc, 104.0);
+    assert_eq!(report.total_sloc.value(), 104.0);
 
     // Complex crate should have higher complexity than simple
     assert!(
@@ -133,7 +133,7 @@ fn test_full_workspace_analysis() {
     assert_eq!(report.crate_count(), 3);
     assert_eq!(report.file_count(), 6);
     // SLOC now counts only function bodies
-    assert_eq!(report.total_sloc, 118.0);
+    assert_eq!(report.total_sloc.value(), 118.0);
 
     // Workspace averages should be weighted by SLOC
     // complex_crate has most SLOC (104) so it dominates the average
@@ -156,7 +156,7 @@ fn test_maintainability_index_ranges() {
 
     for crate_report in &report.crates {
         // MI should be in valid range (typically 0-100, but can exceed)
-        if !crate_report.avg_mi.is_nan() && crate_report.total_sloc > 0.0 {
+        if !crate_report.avg_mi.is_nan() && crate_report.total_sloc.value() > 0.0 {
             assert!(
                 crate_report.avg_mi >= 0.0,
                 "MI should be >= 0, got {} for {}",
@@ -191,8 +191,8 @@ fn test_function_level_access() {
     for func in &file.functions {
         // Each function should have a name and valid metrics
         assert!(func.name.is_some(), "function should have a name");
-        assert!(func.cyclomatic >= 1.0, "cyclomatic should be >= 1");
-        assert!(func.start_line > 0, "start_line should be > 0");
-        assert!(func.end_line >= func.start_line, "end_line should be >= start_line");
+        assert!(func.cyclomatic.value() >= 1.0, "cyclomatic should be >= 1");
+        assert!(func.start_line.value() > 0, "start_line should be > 0");
+        assert!(func.end_line.value() >= func.start_line.value(), "end_line should be >= start_line");
     }
 }

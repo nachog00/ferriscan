@@ -1,7 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use super::weighted_avg;
+use crate::domain::primitive::blank::Blank;
+use crate::domain::primitive::cloc::Cloc;
+use crate::domain::primitive::lloc::Lloc;
+use crate::domain::primitive::ploc::Ploc;
+use crate::domain::primitive::sloc::Sloc;
+
 use super::file_metrics::FileMetrics;
+use super::weighted_avg;
 
 /// Metrics for a crate, aggregated from its files.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,11 +19,11 @@ pub struct CrateMetrics {
     pub files: Vec<FileMetrics>,
 
     // Aggregated totals
-    pub total_sloc: f64,
-    pub total_ploc: f64,
-    pub total_lloc: f64,
-    pub total_cloc: f64,
-    pub total_blank: f64,
+    pub total_sloc: Sloc,
+    pub total_ploc: Ploc,
+    pub total_lloc: Lloc,
+    pub total_cloc: Cloc,
+    pub total_blank: Blank,
     pub total_functions: usize,
     pub total_closures: usize,
 
@@ -39,11 +45,11 @@ impl CrateMetrics {
             return Self {
                 name,
                 files,
-                total_sloc: 0.0,
-                total_ploc: 0.0,
-                total_lloc: 0.0,
-                total_cloc: 0.0,
-                total_blank: 0.0,
+                total_sloc: Sloc::zero(),
+                total_ploc: Ploc::zero(),
+                total_lloc: Lloc::zero(),
+                total_cloc: Cloc::zero(),
+                total_blank: Blank::zero(),
                 total_functions: 0,
                 total_closures: 0,
                 avg_file_sloc: 0.0,
@@ -55,22 +61,23 @@ impl CrateMetrics {
             };
         }
 
-        let total_sloc: f64 = files.iter().map(|f| f.sloc).sum();
-        let total_ploc: f64 = files.iter().map(|f| f.ploc).sum();
-        let total_lloc: f64 = files.iter().map(|f| f.lloc).sum();
-        let total_cloc: f64 = files.iter().map(|f| f.cloc).sum();
-        let total_blank: f64 = files.iter().map(|f| f.blank).sum();
+        let total_sloc: Sloc = files.iter().map(|f| f.sloc).sum();
+        let total_ploc: Ploc = files.iter().map(|f| f.ploc).sum();
+        let total_lloc: Lloc = files.iter().map(|f| f.lloc).sum();
+        let total_cloc: Cloc = files.iter().map(|f| f.cloc).sum();
+        let total_blank: Blank = files.iter().map(|f| f.blank).sum();
         let total_functions: usize = files.iter().map(|f| f.function_count()).sum();
         let total_closures: usize = files.iter().map(|f| f.closure_count()).sum();
 
         let n_f64 = n as f64;
 
         // Weighted averages by SLOC for complexity metrics
-        let avg_cyclomatic = weighted_avg(&files, |f| f.cyclomatic_avg, |f| f.sloc);
-        let avg_cognitive = weighted_avg(&files, |f| f.cognitive_avg, |f| f.sloc);
-        let avg_mi = weighted_avg(&files, |f| f.mi_avg, |f| f.sloc);
+        let avg_cyclomatic =
+            weighted_avg(&files, |f| f.cyclomatic_avg, |f| f.sloc.value());
+        let avg_cognitive = weighted_avg(&files, |f| f.cognitive_avg, |f| f.sloc.value());
+        let avg_mi = weighted_avg(&files, |f| f.mi_avg, |f| f.sloc.value());
         let avg_halstead_difficulty =
-            weighted_avg(&files, |f| f.halstead_difficulty_avg, |f| f.sloc);
+            weighted_avg(&files, |f| f.halstead_difficulty_avg, |f| f.sloc.value());
 
         Self {
             name,
@@ -82,7 +89,7 @@ impl CrateMetrics {
             total_blank,
             total_functions,
             total_closures,
-            avg_file_sloc: total_sloc / n_f64,
+            avg_file_sloc: total_sloc.value() / n_f64,
             avg_functions_per_file: total_functions as f64 / n_f64,
             avg_cyclomatic,
             avg_cognitive,

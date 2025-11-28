@@ -42,17 +42,18 @@ pub struct Warning {
 pub fn check_file_thresholds(file: &FileMetrics, thresholds: &Thresholds) -> Vec<Warning> {
     let mut warnings = Vec::new();
 
-    if file.sloc > thresholds.max_file_sloc {
+    let sloc_value = file.sloc.value();
+    if sloc_value > thresholds.max_file_sloc {
         warnings.push(Warning {
             file: file.path.clone(),
             function: None,
             line: None,
             metric: "sloc".to_string(),
-            value: file.sloc,
+            value: sloc_value,
             threshold: thresholds.max_file_sloc,
             message: format!(
                 "File has {} SLOC (threshold: {})",
-                file.sloc as i64, thresholds.max_file_sloc as i64
+                sloc_value as i64, thresholds.max_file_sloc as i64
             ),
         });
     }
@@ -84,47 +85,50 @@ pub fn check_function_thresholds(
 ) -> Vec<Warning> {
     let mut warnings = Vec::new();
 
-    if func.cyclomatic > thresholds.max_cyclomatic {
+    let cyclomatic_value = func.cyclomatic.value();
+    if cyclomatic_value > thresholds.max_cyclomatic {
         warnings.push(Warning {
             file: file_path.to_string(),
             function: func.name.clone(),
-            line: Some(func.start_line),
+            line: Some(func.start_line.value()),
             metric: "cyclomatic".to_string(),
-            value: func.cyclomatic,
+            value: cyclomatic_value,
             threshold: thresholds.max_cyclomatic,
             message: format!(
                 "High cyclomatic complexity: {:.1} (threshold: {:.1})",
-                func.cyclomatic, thresholds.max_cyclomatic
+                cyclomatic_value, thresholds.max_cyclomatic
             ),
         });
     }
 
-    if func.cognitive > thresholds.max_cognitive {
+    let cognitive_value = func.cognitive.value();
+    if cognitive_value > thresholds.max_cognitive {
         warnings.push(Warning {
             file: file_path.to_string(),
             function: func.name.clone(),
-            line: Some(func.start_line),
+            line: Some(func.start_line.value()),
             metric: "cognitive".to_string(),
-            value: func.cognitive,
+            value: cognitive_value,
             threshold: thresholds.max_cognitive,
             message: format!(
                 "High cognitive complexity: {:.1} (threshold: {:.1})",
-                func.cognitive, thresholds.max_cognitive
+                cognitive_value, thresholds.max_cognitive
             ),
         });
     }
 
-    if func.mi < thresholds.min_mi && func.mi > 0.0 {
+    let mi_value = func.mi.value();
+    if mi_value < thresholds.min_mi && mi_value > 0.0 {
         warnings.push(Warning {
             file: file_path.to_string(),
             function: func.name.clone(),
-            line: Some(func.start_line),
+            line: Some(func.start_line.value()),
             metric: "maintainability".to_string(),
-            value: func.mi,
+            value: mi_value,
             threshold: thresholds.min_mi,
             message: format!(
                 "Low maintainability index: {:.1} (threshold: {:.1})",
-                func.mi, thresholds.min_mi
+                mi_value, thresholds.min_mi
             ),
         });
     }
