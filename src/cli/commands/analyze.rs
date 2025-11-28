@@ -4,10 +4,13 @@ use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
+use crate::cli::format::{format_workspace, OutputFormat};
 use crate::cli::repo::source::RepoSource;
 use crate::cli::SubCommand;
-use ferriscan::report::{OutputFormat, Thresholds, Warning, WorkspaceReport};
-use ferriscan::{analyzer, workspace};
+use ferriscan::domain::analysis::analyze_workspace;
+use ferriscan::domain::thresholds::{check_crate_thresholds, Thresholds, Warning};
+use ferriscan::extraction::rca::RcaExtractor;
+use ferriscan::workspace;
 
 #[derive(Args)]
 pub struct AnalyzeCommand {
@@ -59,11 +62,22 @@ impl SubCommand for AnalyzeCommand {
         let crates = workspace::discover_crates(&target_path)?;
         eprintln!("{} {} crates", "Found:".cyan().bold(), crates.len());
 
-        let report = analyzer::analyze_workspace(&crates);
-        println!("{}", report.format(&self.format, self.verbose));
+        let extractor = RcaExtractor;
+        let workspace_metrics = analyze_workspace(&extractor, &crates);
+
+        println!("{}", format_workspace(&workspace_metrics, &self.format, self.verbose));
 
         if self.warnings {
-            let warnings = collect_warnings(&report, &self.thresholds());
+            let thresholds = self.thresholds();
+            let warnings: Vec<_> = workspace_metrics
+                .crates
+                .iter()
+                .flat_map(|c| {
+                    check_crate_thresholds(c, &thresholds)
+                        .into_iter()
+                        .map(|w| (c.name.clone(), w))
+                })
+                .collect();
             print_warnings(&warnings);
         }
 
@@ -83,18 +97,6 @@ impl AnalyzeCommand {
     }
 }
 
-fn collect_warnings(report: &WorkspaceReport, thresholds: &Thresholds) -> Vec<(String, Warning)> {
-    report
-        .crates
-        .iter()
-        .flat_map(|c| {
-            c.check_thresholds(thresholds)
-                .into_iter()
-                .map(|w| (c.name.clone(), w))
-        })
-        .collect()
-}
-
 fn print_warnings(warnings: &[(String, Warning)]) {
     if warnings.is_empty() {
         eprintln!("\n{}", "No warnings".green().bold());
@@ -103,10 +105,17 @@ fn print_warnings(warnings: &[(String, Warning)]) {
 
     eprintln!("\n{}", "=== Warnings ===".yellow().bold());
     for (crate_name, warning) in warnings {
+        let location = match (&warning.function, warning.line) {
+            (Some(func), Some(line)) => format!("{}:{} ({})", warning.file, line, func),
+            (Some(func), None) => format!("{} ({})", warning.file, func),
+            (None, Some(line)) => format!("{}:{}", warning.file, line),
+            (None, None) => warning.file.clone(),
+        };
+
         eprintln!(
             "  {} {}: {}",
             format!("[{}]", crate_name).dimmed(),
-            warning.file.yellow(),
+            location.yellow(),
             warning.message
         );
     }

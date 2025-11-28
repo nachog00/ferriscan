@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod format;
 pub mod repo;
 
 use anyhow::Result;
