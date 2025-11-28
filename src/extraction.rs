@@ -2,7 +2,7 @@ pub mod rca;
 
 use std::path::Path;
 
-use crate::domain::metrics::FunctionMetrics;
+use crate::domain::metrics::function_metrics::FunctionMetrics;
 
 /// Abstraction over code parsing. The implementation (e.g., rust-code-analysis) is an internal detail.
 pub trait MetricsExtractor {

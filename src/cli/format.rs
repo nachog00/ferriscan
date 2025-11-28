@@ -1,7 +1,7 @@
 use clap::ValueEnum;
 use comfy_table::{presets::UTF8_FULL, Cell, Color, ContentArrangement, Table};
 
-use ferriscan::domain::metrics::WorkspaceMetrics;
+use ferriscan::domain::metrics::workspace_metrics::WorkspaceMetrics;
 
 #[derive(Clone, ValueEnum)]
 pub enum OutputFormat {

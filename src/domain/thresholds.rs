@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::domain::metrics::{CrateMetrics, FileMetrics, FunctionMetrics};
+use crate::domain::metrics::crate_metrics::CrateMetrics;
+use crate::domain::metrics::file_metrics::FileMetrics;
+use crate::domain::metrics::function_metrics::FunctionMetrics;
 
 /// Thresholds for metric warnings.
 #[derive(Debug, Clone)]
