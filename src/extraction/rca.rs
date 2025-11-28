@@ -3,7 +3,7 @@ use std::path::Path;
 use rust_code_analysis::{get_function_spaces, FuncSpace, SpaceKind, LANG};
 use thiserror::Error;
 
-use crate::domain::metrics::{FunctionKind, FunctionMetrics};
+use crate::domain::metrics::function_metrics::{FunctionKind, FunctionMetrics};
 use crate::extraction::MetricsExtractor;
 
 #[derive(Debug, Error)]

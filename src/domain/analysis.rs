@@ -2,7 +2,9 @@ use std::path::Path;
 
 use walkdir::WalkDir;
 
-use crate::domain::metrics::{CrateMetrics, FileMetrics, WorkspaceMetrics};
+use crate::domain::metrics::crate_metrics::CrateMetrics;
+use crate::domain::metrics::file_metrics::FileMetrics;
+use crate::domain::metrics::workspace_metrics::WorkspaceMetrics;
 use crate::extraction::MetricsExtractor;
 use crate::workspace::CrateInfo;
 
