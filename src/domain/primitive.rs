@@ -7,10 +7,15 @@
 //!
 //! By the time data enters the domain layer, it's valid by construction.
 
+pub mod blank;
+pub mod cloc;
 pub mod cognitive;
+pub mod counts;
 pub mod cyclomatic;
+pub mod halstead;
 pub mod lloc;
 pub mod mi;
+pub mod ploc;
 pub mod sloc;
 
 use std::error::Error;
