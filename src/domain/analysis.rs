@@ -14,8 +14,12 @@ pub fn analyze_file<E: MetricsExtractor>(
     path: &Path,
     relative_path: String,
 ) -> Result<FileMetrics, E::Error> {
-    let functions = extractor.extract_functions(path)?;
-    Ok(FileMetrics::from_functions(relative_path, functions))
+    let extraction = extractor.extract_file(path)?;
+    Ok(FileMetrics::from_functions(
+        relative_path,
+        extraction.functions,
+        extraction.file_mi,
+    ))
 }
 
 /// Analyze all Rust files in a crate.

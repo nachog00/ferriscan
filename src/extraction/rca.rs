@@ -14,7 +14,7 @@ use crate::domain::primitive::lloc::Lloc;
 use crate::domain::primitive::mi::MaintainabilityIndex;
 use crate::domain::primitive::ploc::Ploc;
 use crate::domain::primitive::sloc::Sloc;
-use crate::extraction::MetricsExtractor;
+use crate::extraction::{FileExtraction, MetricsExtractor};
 
 #[derive(Debug, Error)]
 pub enum RcaError {
@@ -34,7 +34,7 @@ pub struct RcaExtractor;
 impl MetricsExtractor for RcaExtractor {
     type Error = RcaError;
 
-    fn extract_functions(&self, path: &Path) -> Result<Vec<FunctionMetrics>, Self::Error> {
+    fn extract_file(&self, path: &Path) -> Result<FileExtraction, Self::Error> {
         let source = std::fs::read(path)?;
 
         let space = get_function_spaces(&LANG::Rust, source, path, None).ok_or_else(|| {
@@ -43,9 +43,14 @@ impl MetricsExtractor for RcaExtractor {
             }
         })?;
 
+        // Capture file-level MI from the root FuncSpace
+        let file_mi = MaintainabilityIndex::new(space.metrics.mi.mi_visual_studio())
+            .map_err(|e| RcaError::InvalidMetric(format!("file_mi: {}", e)))?;
+
         let mut functions = Vec::new();
         collect_functions(&space, &mut functions)?;
-        Ok(functions)
+
+        Ok(FileExtraction { functions, file_mi })
     }
 }
 

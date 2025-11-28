@@ -75,7 +75,7 @@ impl CrateMetrics {
         let avg_cyclomatic =
             weighted_avg(&files, |f| f.cyclomatic_avg, |f| f.sloc.value());
         let avg_cognitive = weighted_avg(&files, |f| f.cognitive_avg, |f| f.sloc.value());
-        let avg_mi = weighted_avg(&files, |f| f.mi_avg, |f| f.sloc.value());
+        let avg_mi = weighted_avg(&files, |f| f.mi.value(), |f| f.sloc.value());
         let avg_halstead_difficulty =
             weighted_avg(&files, |f| f.halstead_difficulty_avg, |f| f.sloc.value());
 

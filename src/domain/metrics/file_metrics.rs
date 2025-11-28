@@ -4,6 +4,7 @@ use crate::domain::primitive::blank::Blank;
 use crate::domain::primitive::cloc::Cloc;
 use crate::domain::primitive::counts::{Nargs, Nexits};
 use crate::domain::primitive::lloc::Lloc;
+use crate::domain::primitive::mi::MaintainabilityIndex;
 use crate::domain::primitive::ploc::Ploc;
 use crate::domain::primitive::sloc::Sloc;
 
@@ -36,8 +37,8 @@ pub struct FileMetrics {
     pub halstead_effort_sum: f64,
     pub halstead_bugs_sum: f64,
 
-    /// Average maintainability index.
-    pub mi_avg: f64,
+    /// File-level maintainability index (from whole file analysis, not averaged).
+    pub mi: MaintainabilityIndex,
 
     // Counts
     pub nargs_sum: Nargs,
@@ -47,7 +48,12 @@ pub struct FileMetrics {
 
 impl FileMetrics {
     /// Construct file metrics by aggregating from function metrics.
-    pub fn from_functions(path: String, functions: Vec<FunctionMetrics>) -> Self {
+    /// The `file_mi` should come from file-level analysis, not averaged from functions.
+    pub fn from_functions(
+        path: String,
+        functions: Vec<FunctionMetrics>,
+        file_mi: MaintainabilityIndex,
+    ) -> Self {
         let n = functions.len();
 
         if n == 0 {
@@ -66,7 +72,7 @@ impl FileMetrics {
                 halstead_difficulty_avg: 0.0,
                 halstead_effort_sum: 0.0,
                 halstead_bugs_sum: 0.0,
-                mi_avg: 0.0,
+                mi: file_mi,
                 nargs_sum: Nargs::zero(),
                 nargs_avg: 0.0,
                 nexits_sum: Nexits::zero(),
@@ -87,7 +93,6 @@ impl FileMetrics {
             functions.iter().map(|f| f.halstead_difficulty.value()).sum::<f64>() / n_f64;
         let halstead_effort_sum: f64 = functions.iter().map(|f| f.halstead_effort.value()).sum();
         let halstead_bugs_sum: f64 = functions.iter().map(|f| f.halstead_bugs.value()).sum();
-        let mi_avg: f64 = functions.iter().map(|f| f.mi.value()).sum::<f64>() / n_f64;
 
         let nargs_sum: Nargs = functions.iter().map(|f| f.nargs).sum();
         let nexits_sum: Nexits = functions.iter().map(|f| f.nexits).sum();
@@ -107,7 +112,7 @@ impl FileMetrics {
             halstead_difficulty_avg,
             halstead_effort_sum,
             halstead_bugs_sum,
-            mi_avg,
+            mi: file_mi,
             nargs_sum,
             nargs_avg: nargs_sum.value() as f64 / n_f64,
             nexits_sum,

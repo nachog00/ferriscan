@@ -117,7 +117,7 @@ fn format_verbose_details(workspace: &WorkspaceMetrics) -> String {
             &format!("{:.0}", file.sloc.value()),
             &file.function_count().to_string(),
             &format!("{:.1}", file.cyclomatic_avg),
-            &format!("{:.1}", file.mi_avg),
+            &format!("{:.1}", file.mi.value()),
         ]);
     }
 
@@ -128,11 +128,12 @@ fn format_verbose_details(workspace: &WorkspaceMetrics) -> String {
 
     let mut by_mi: Vec<_> = all_files
         .into_iter()
-        .filter(|(_, f)| f.mi_avg > 0.0)
+        .filter(|(_, f)| f.mi.value() > 0.0)
         .collect();
     by_mi.sort_by(|a, b| {
-        a.1.mi_avg
-            .partial_cmp(&b.1.mi_avg)
+        a.1.mi
+            .value()
+            .partial_cmp(&b.1.mi.value())
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     by_mi.truncate(10);
@@ -146,7 +147,7 @@ fn format_verbose_details(workspace: &WorkspaceMetrics) -> String {
         worst_table.add_row(vec![
             Cell::new(crate_name.as_str()),
             Cell::new(&file.path),
-            Cell::new(format!("{:.1}", file.mi_avg)).fg(mi_color(file.mi_avg)),
+            Cell::new(format!("{:.1}", file.mi.value())).fg(mi_color(file.mi.value())),
             Cell::new(format!("{:.0}", file.sloc.value())),
             Cell::new(format!("{:.1}", file.cyclomatic_avg)),
         ]);
