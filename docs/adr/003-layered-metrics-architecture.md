@@ -1,7 +1,7 @@
 # ADR 003: Layered Metrics Architecture
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 

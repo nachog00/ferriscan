@@ -4,10 +4,12 @@ use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 
+use crate::cli::format::{compare_workspaces, format_comparison, OutputFormat};
 use crate::cli::repo::source::RepoSource;
 use crate::cli::SubCommand;
-use ferriscan::report::OutputFormat;
-use ferriscan::{analyzer, compare, workspace};
+use ferriscan::domain::analysis::analyze_workspace;
+use ferriscan::extraction::rca::RcaExtractor;
+use ferriscan::workspace;
 
 #[derive(Args)]
 pub struct CompareCommand {
@@ -59,13 +61,13 @@ impl SubCommand for CompareCommand {
             right_crates.len()
         );
 
-        let left_report = analyzer::analyze_workspace(&left_crates);
-        let right_report = analyzer::analyze_workspace(&right_crates);
+        let extractor = RcaExtractor;
+        let left_metrics = analyze_workspace(&extractor, &left_crates);
+        let right_metrics = analyze_workspace(&extractor, &right_crates);
 
-        let comparison =
-            compare::compare_workspaces(&left_name, &left_report, &right_name, &right_report);
+        let comparison = compare_workspaces(left_name, right_name, &left_metrics, &right_metrics);
 
-        println!("{}", comparison.format(&self.format));
+        println!("{}", format_comparison(&comparison, &self.format));
 
         Ok(())
     }

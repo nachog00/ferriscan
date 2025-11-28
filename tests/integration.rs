@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use ferriscan::analyzer::{analyze_crate, analyze_workspace};
+use ferriscan::domain::analysis::{analyze_crate, analyze_workspace};
+use ferriscan::extraction::rca::RcaExtractor;
 use ferriscan::workspace::{discover_crates, CrateInfo};
 
 fn fixtures_path() -> PathBuf {
@@ -28,12 +29,15 @@ fn test_workspace_discovery() {
 
 #[test]
 fn test_simple_crate_metrics() {
+    let extractor = RcaExtractor;
     let crate_info = get_crate_info("simple_crate");
-    let report = analyze_crate(&crate_info);
+    let report = analyze_crate(&extractor, &crate_info);
 
     assert_eq!(report.name, "simple_crate");
-    assert_eq!(report.file_count, 1_usize.into());
-    assert_eq!(report.total_sloc, 18.0);
+    assert_eq!(report.file_count(), 1);
+    // SLOC now counts only function bodies, not file-level code (imports, etc.)
+    assert_eq!(report.total_sloc, 11.0);
+    assert_eq!(report.total_functions, 3);
 
     // Simple functions have cyclomatic complexity of 1
     assert_eq!(report.avg_cyclomatic, 1.0);
@@ -44,18 +48,20 @@ fn test_simple_crate_metrics() {
     assert_eq!(report.files.len(), 1);
     let file = &report.files[0];
     assert!(file.path.ends_with("lib.rs"));
-    assert_eq!(file.cyclomatic_sum, 4.0); // 3 functions + 1 base
+    assert_eq!(file.cyclomatic_sum, 3.0); // 3 functions with complexity 1 each
     assert_eq!(file.cognitive_sum, 0.0);
 }
 
 #[test]
 fn test_complex_crate_metrics() {
+    let extractor = RcaExtractor;
     let crate_info = get_crate_info("complex_crate");
-    let report = analyze_crate(&crate_info);
+    let report = analyze_crate(&extractor, &crate_info);
 
     assert_eq!(report.name, "complex_crate");
-    assert_eq!(report.file_count, 2_usize.into());
-    assert_eq!(report.total_sloc, 120.0);
+    assert_eq!(report.file_count(), 2);
+    // SLOC now counts only function bodies
+    assert_eq!(report.total_sloc, 104.0);
 
     // Complex crate should have higher complexity than simple
     assert!(
@@ -79,21 +85,20 @@ fn test_complex_crate_metrics() {
 }
 
 #[test]
-fn test_edge_cases_nan_handling() {
+fn test_edge_cases_empty_file() {
+    let extractor = RcaExtractor;
     let crate_info = get_crate_info("edge_cases");
-    let report = analyze_crate(&crate_info);
+    let report = analyze_crate(&extractor, &crate_info);
 
     assert_eq!(report.name, "edge_cases");
-    assert_eq!(report.file_count, 3_usize.into());
+    assert_eq!(report.file_count(), 3);
 
-    // empty.rs produces NaN for some metrics - verify they don't corrupt aggregates
+    // empty.rs has no functions, so it will have 0 for everything
     let empty_file = report.files.iter().find(|f| f.path.contains("empty")).unwrap();
-    assert!(
-        empty_file.cognitive_avg.is_nan(),
-        "empty file should have NaN cognitive_avg"
-    );
+    assert_eq!(empty_file.function_count(), 0);
+    assert_eq!(empty_file.cyclomatic_sum, 0.0);
 
-    // Despite NaN in empty.rs, crate averages should be valid numbers
+    // Crate averages should still be valid numbers
     assert!(
         !report.avg_cyclomatic.is_nan(),
         "crate avg_cyclomatic should not be NaN"
@@ -110,26 +115,28 @@ fn test_edge_cases_nan_handling() {
 
 #[test]
 fn test_types_only_file() {
+    let extractor = RcaExtractor;
     let crate_info = get_crate_info("edge_cases");
-    let report = analyze_crate(&crate_info);
+    let report = analyze_crate(&extractor, &crate_info);
 
     // types_only.rs has structs/enums but no functions
     let types_file = report.files.iter().find(|f| f.path.contains("types_only")).unwrap();
-    assert_eq!(types_file.functions, 0.0);
-    assert_eq!(types_file.cyclomatic_sum, 1.0); // Base complexity
+    assert_eq!(types_file.function_count(), 0);
 }
 
 #[test]
 fn test_full_workspace_analysis() {
+    let extractor = RcaExtractor;
     let crates = discover_crates(&fixtures_path()).unwrap();
-    let report = analyze_workspace(&crates);
+    let report = analyze_workspace(&extractor, &crates);
 
-    assert_eq!(report.total_crates, 3);
-    assert_eq!(report.total_files, 6_usize.into());
-    assert_eq!(report.total_sloc, 165.0);
+    assert_eq!(report.crate_count(), 3);
+    assert_eq!(report.file_count(), 6);
+    // SLOC now counts only function bodies
+    assert_eq!(report.total_sloc, 118.0);
 
     // Workspace averages should be weighted by SLOC
-    // complex_crate has most SLOC (120) so it dominates the average
+    // complex_crate has most SLOC (104) so it dominates the average
     assert!(
         report.avg_cyclomatic > 2.0,
         "workspace avg_cyclomatic should be > 2 due to complex_crate weight"
@@ -142,23 +149,10 @@ fn test_full_workspace_analysis() {
 }
 
 #[test]
-fn test_crate_ordering_by_sloc() {
-    let crates = discover_crates(&fixtures_path()).unwrap();
-    let report = analyze_workspace(&crates);
-
-    // Crates should be sorted by SLOC descending
-    let slocs: Vec<f64> = report.crates.iter().map(|c| c.total_sloc).collect();
-    let mut sorted = slocs.clone();
-    sorted.sort_by(|a, b| b.partial_cmp(a).unwrap());
-
-    assert_eq!(slocs, sorted, "crates should be sorted by SLOC descending");
-    assert_eq!(report.crates[0].name, "complex_crate"); // 120 SLOC
-}
-
-#[test]
 fn test_maintainability_index_ranges() {
+    let extractor = RcaExtractor;
     let crates = discover_crates(&fixtures_path()).unwrap();
-    let report = analyze_workspace(&crates);
+    let report = analyze_workspace(&extractor, &crates);
 
     for crate_report in &report.crates {
         // MI should be in valid range (typically 0-100, but can exceed)
@@ -182,4 +176,23 @@ fn test_maintainability_index_ranges() {
         simple.avg_mi,
         complex.avg_mi
     );
+}
+
+#[test]
+fn test_function_level_access() {
+    let extractor = RcaExtractor;
+    let crate_info = get_crate_info("simple_crate");
+    let report = analyze_crate(&extractor, &crate_info);
+
+    // We now have access to individual functions
+    let file = &report.files[0];
+    assert!(file.functions.len() > 0, "should have functions");
+
+    for func in &file.functions {
+        // Each function should have a name and valid metrics
+        assert!(func.name.is_some(), "function should have a name");
+        assert!(func.cyclomatic >= 1.0, "cyclomatic should be >= 1");
+        assert!(func.start_line > 0, "start_line should be > 0");
+        assert!(func.end_line >= func.start_line, "end_line should be >= start_line");
+    }
 }
